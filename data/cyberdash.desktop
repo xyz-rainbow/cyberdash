@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=CyberDash
+Comment=Advanced Emoji Picker for Linux - Cyberpunk Style
+Exec=cyberdash
+Icon=emoji-symbolic
+Terminal=false
+Type=Application
+Categories=Utility;Accessories;
+StartupNotify=false
+Keywords=emoji;picker;clipboard;translator;
