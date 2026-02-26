@@ -9,9 +9,9 @@ else
     export GDK_BACKEND=x11
 fi
 
-# Add source to path
+# Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR/src"
 
-# Run the app
+# Run from src directory with python module
+cd "$SCRIPT_DIR/src"
 exec python3 -m cyberdash "$@"
