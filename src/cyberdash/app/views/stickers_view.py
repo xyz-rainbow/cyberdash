@@ -56,7 +56,7 @@ class StickersView(Gtk.Box):
         
         self.search_entry = Gtk.Entry()
         self.search_entry.set_placeholder_text("Buscar GIFs...")
-        self.search_entry.connect("activated", self.search_gifs)
+        self.search_entry.connect("activate", self.search_gifs)
         
         search_btn = Gtk.Button()
         search_btn.set_label("🔍")
