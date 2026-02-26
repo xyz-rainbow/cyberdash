@@ -28,7 +28,6 @@ class PinnedView(Gtk.Box):
         self.set_margin_top(8)
         self.set_margin_bottom(8)
         
-        # Header
         header = Gtk.Label()
         header.set_label("⭐ EMOJIS FIJADOS")
         header.set_halign(Gtk.Align.START)
@@ -36,14 +35,11 @@ class PinnedView(Gtk.Box):
         
         self.append(header)
         
-        # Grid for pinned items
         scrolled = Gtk.ScrolledWindow()
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_vexpand(True)
         
-        self.grid = Gtk.FlowGrid()
-        self.grid.set_max_children_per_line(8)
-        self.grid.set_min_children_per_line(4)
+        self.grid = Gtk.Grid()
         self.grid.set_halign(Gtk.Align.CENTER)
         self.grid.set_valign(Gtk.Align.START)
         
@@ -51,7 +47,6 @@ class PinnedView(Gtk.Box):
         
         self.append(scrolled)
         
-        # ASCII Art section
         ascii_header = Gtk.Label()
         ascii_header.set_label("ASCII ART")
         ascii_header.set_halign(Gtk.Align.START)
@@ -60,15 +55,12 @@ class PinnedView(Gtk.Box):
         
         self.append(ascii_header)
         
-        # ASCII grid
         ascii_scrolled = Gtk.ScrolledWindow()
         ascii_scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         ascii_scrolled.set_vexpand(True)
-        ascii_scrolled.set_height_request(150)
+        ascii_scrolled.set_size_request(-1, 150)
         
-        self.ascii_grid = Gtk.FlowGrid()
-        self.ascii_grid.set_max_children_per_line(4)
-        self.ascii_grid.set_min_children_per_line(2)
+        self.ascii_grid = Gtk.Grid()
         self.ascii_grid.set_halign(Gtk.Align.CENTER)
         
         ascii_scrolled.set_child(self.ascii_grid)
@@ -77,7 +69,6 @@ class PinnedView(Gtk.Box):
     
     def load(self):
         """Load pinned items"""
-        # Load emojis
         if self.pinned_file.exists():
             try:
                 with open(self.pinned_file, 'r') as f:
@@ -93,7 +84,6 @@ class PinnedView(Gtk.Box):
     
     def load_pinned_display(self):
         """Display pinned emojis"""
-        # Clear grid
         child = self.grid.get_first_child()
         while child:
             next_child = child.get_next_sibling()
@@ -102,62 +92,53 @@ class PinnedView(Gtk.Box):
         
         if not self.pinned_items:
             empty = Gtk.Label()
-            empty.set_label("No hay emojis fijados\nHaz clic en ⭐ para añadir")
+            empty.set_label("No hay emojis fijados")
             empty.set_halign(Gtk.Align.CENTER)
-            empty.set_justify(Gtk.Justify.CENTER)
-            self.grid.append(empty)
+            self.grid.attach(empty, 0, 0, 4, 1)
             return
         
+        col = 0
+        row = 0
         for emoji in self.pinned_items:
             btn = Gtk.Button()
             btn.set_label(emoji)
             btn.set_size_request(50, 50)
             btn.connect("clicked", self.on_item_clicked, emoji)
+            self.grid.attach(btn, col, row, 1, 1)
             
-            # Right click to remove
-            btn.set_action_name("context-menu")
-            
-            self.grid.append(btn)
+            col += 1
+            if col >= 4:
+                col = 0
+                row += 1
     
     def load_ascii_art(self):
         """Load ASCII art"""
-        # Sample ASCII art
         ascii_art = [
-            "(ಠ_ಠ)",
-            "(┐『ಠ_ಠ)┐",
-            "¯\\_(ツ)_/¯",
-            "(⊙_⊙)",
-            "(¬_¬)",
-            "(^_~)",
-            "(>_<)",
-            "(^_^)",
-            "(°°)",
-            "(o_o)",
-            "(;_;)",
-            "(T_T)",
-            "XD",
-            "xD",
-            ":)",
-            ":(",
-            ":D",
-            ";)",
-            "-_-",
-            "¬¬",
+            "(ಠ_ಠ)", "(┐『ಠ_ಠ)┐", "¯\\_(ツ)_/¯", "(⊙_⊙)", "(¬_¬)",
+            "(^_~)", "(>_<)", "(^_^)", "(°°)", "(o_o)",
+            "(;_;)", "(T_T)", "XD", "xD", ":)",
+            ":(", ":D", ";)", "-_-", "¬¬",
         ]
         
-        # Clear
         child = self.ascii_grid.get_first_child()
         while child:
             next_child = child.get_next_sibling()
             self.ascii_grid.remove(child)
             child = next_child
         
+        col = 0
+        row = 0
         for art in ascii_art:
             btn = Gtk.Button()
             btn.set_label(art)
             btn.set_size_request(80, 40)
             btn.connect("clicked", self.on_item_clicked, art)
-            self.ascii_grid.append(btn)
+            self.ascii_grid.attach(btn, col, row, 1, 1)
+            
+            col += 1
+            if col >= 4:
+                col = 0
+                row += 1
     
     def add_pinned(self, emoji: str):
         """Add emoji to pinned"""
@@ -175,7 +156,6 @@ class PinnedView(Gtk.Box):
     
     def save(self):
         """Save pinned items"""
-        Path.home() / ".config" / "cyberdash"
         self.pinned_file.parent.mkdir(parents=True, exist_ok=True)
         
         with open(self.pinned_file, 'w') as f:

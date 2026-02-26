@@ -116,7 +116,6 @@ class SettingsView(Gtk.Box):
         about = Gtk.Label()
         about.set_label("CyberDash v1.0\nEmoji Picker para Linux\nEstilo Cyberpunk/VHS")
         about.set_halign(Gtk.Align.CENTER)
-        about.set_justify(Gtk.Justify.CENTER)
         
         self.append(about)
     

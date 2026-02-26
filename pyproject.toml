@@ -12,11 +12,6 @@ authors = [
     {name = "Your Name", email = "your@email.com"}
 ]
 requires-python = ">=3.10"
-dependencies = [
-    "gi>=1.0",
-    "requests>=2.28.0",
-    "keyboard>=0.13.5",
-]
 
 [project.optional-dependencies]
 dev = [
@@ -26,7 +21,7 @@ dev = [
 ]
 
 [project.scripts]
-cyberdash = "cyberdash.main:main"
+cyberdash = "cyberdash:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

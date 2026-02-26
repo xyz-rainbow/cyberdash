@@ -69,9 +69,7 @@ class CyberDashWindow(Adw.Window):
         self.set_default_size(450, 550)
         self.set_resizable(False)
         self.set_decorated(True)
-        self.set_skip_taskbar_hint(True)
         self.set_focus_visible(True)
-        self.set_visible(True)
         
         # Enable transparency
         self.set_opacity(0.98)
@@ -136,14 +134,10 @@ class CyberDashWindow(Adw.Window):
         
         # Status bar
         self.setup_status_bar()
-        
-        # Connect signals
-        self.connect("key-press-event", self.on_key_press)
     
     def setup_header(self):
         """Setup header bar"""
         header = Gtk.HeaderBar()
-        header.set_show_title(False)
         
         # Title label
         title = Gtk.Label()
@@ -213,7 +207,7 @@ class CyberDashWindow(Adw.Window):
         status_label = Gtk.Label()
         status_label.set_label("READY")
         status_label.set_css_classes(["status-label"])
-        status_label.set_style_classes(["dim-label"])
+        status_label.set_css_classes(["dim-label"])
         
         status_indicator.append(dot)
         status_indicator.append(status_label)
@@ -247,32 +241,25 @@ class CyberDashWindow(Adw.Window):
         self.clipboard_manager.load()
     
     def position_window(self):
-        """Position window near cursor/center of screen"""
+        """Position window at center of screen"""
         display = Gdk.Display.get_default()
         
-        # Get cursor position
-        seat = display.get_default_seat()
-        pointer = seat.get_pointer()
-        _, x, y = pointer.get_position()
+        # Get primary monitor
+        monitor = display.get_primary_monitor()
+        if monitor is None:
+            monitor = display.get_monitors().get_item(0)
         
-        # Get monitor
-        monitor = display.get_monitor_at_point(x, y)
-        workarea = monitor.get_workarea()
-        
-        # Position window
-        window_width = 450
-        window_height = 550
-        
-        # Calculate position
-        new_x = x - window_width // 2
-        new_y = y - window_height // 2
-        
-        # Keep in bounds
-        new_x = max(0, min(new_x, workarea.width - window_width))
-        new_y = max(0, min(new_y, workarea.height - window_height))
-        
-        self.set_default_size(window_width, window_height)
-        self.set_size_request(window_width, window_height)
+        if monitor:
+            workarea = monitor.get_geometry()
+            window_width = 450
+            window_height = 550
+            
+            # Center on monitor
+            new_x = (workarea.width - window_width) // 2 + workarea.x
+            new_y = (workarea.height - window_height) // 2 + workarea.y
+            
+            self.set_default_size(window_width, window_height)
+            self.set_size_request(window_width, window_height)
     
     def on_tab_clicked(self, button, tab_name):
         """Handle tab selection"""
@@ -315,8 +302,7 @@ class CyberDashWindow(Adw.Window):
     def on_emoji_selected(self, emoji: str):
         """Handle emoji selection"""
         # Copy to clipboard
-        clipboard = self.clipboard_manager.get_clipboard()
-        clipboard.set_text(emoji, -1)
+        self.clipboard_manager.copy_to_clipboard(emoji)
         
         # Add to top used
         self.emoji_manager.add_to_top_used(emoji)
@@ -326,8 +312,7 @@ class CyberDashWindow(Adw.Window):
     
     def on_clipboard_select(self, text: str):
         """Handle clipboard item selection"""
-        clipboard = self.clipboard_manager.get_clipboard()
-        clipboard.set_text(text, -1)
+        self.clipboard_manager.copy_to_clipboard(text)
         self.show_toast("Copied to clipboard")
     
     def on_translate_done(self, original: str, translated: str):
@@ -336,8 +321,7 @@ class CyberDashWindow(Adw.Window):
     
     def on_pinned_select(self, item: str):
         """Handle pinned item selection"""
-        clipboard = self.clipboard_manager.get_clipboard()
-        clipboard.set_text(item, -1)
+        self.clipboard_manager.copy_to_clipboard(item)
         self.show_toast(f"Copied: {item[:20]}...")
     
     def on_settings_changed(self):

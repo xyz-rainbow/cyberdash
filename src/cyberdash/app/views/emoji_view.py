@@ -30,7 +30,6 @@ class EmojiView(Gtk.Box):
         # Search box
         self.search_entry = Gtk.Entry()
         self.search_entry.set_placeholder_text("Buscar emoji...")
-        self.search_entry.set_icon_from_icon_name(Gtk.PositionType.END, "system-search-symbolic")
         self.search_entry.connect("changed", self.on_search_changed)
         self.append(self.search_entry)
         
@@ -45,9 +44,7 @@ class EmojiView(Gtk.Box):
         top_used_label.add_css_class("cyber-top-used-title")
         self.top_used_box.append(top_used_label)
         
-        self.top_used_grid = Gtk.FlowGrid()
-        self.top_used_grid.set_max_children_per_line(10)
-        self.top_used_grid.set_min_children_per_line(5)
+        self.top_used_grid = Gtk.Grid()
         self.top_used_grid.set_halign(Gtk.Align.CENTER)
         self.top_used_box.append(self.top_used_grid)
         
@@ -88,9 +85,7 @@ class EmojiView(Gtk.Box):
         scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
         scrolled.set_vexpand(True)
         
-        self.emoji_grid = Gtk.FlowGrid()
-        self.emoji_grid.set_max_children_per_line(8)
-        self.emoji_grid.set_min_children_per_line(8)
+        self.emoji_grid = Gtk.Grid()
         self.emoji_grid.set_halign(Gtk.Align.CENTER)
         self.emoji_grid.set_valign(Gtk.Align.START)
         
@@ -116,8 +111,20 @@ class EmojiView(Gtk.Box):
         # Load category emojis
         emojis = self.emoji_manager.get_category_emojis(self.current_category)
         
+        # Add to grid with wrapping
+        col = 0
+        row = 0
         for emoji in emojis:
-            self.add_emoji_button(emoji)
+            btn = Gtk.Button()
+            btn.set_label(emoji)
+            btn.set_size_request(40, 40)
+            btn.connect("clicked", self.on_emoji_clicked, emoji)
+            self.emoji_grid.attach(btn, col, row, 1, 1)
+            
+            col += 1
+            if col >= 8:
+                col = 0
+                row += 1
     
     def load_top_used(self):
         """Load top used emojis"""
@@ -133,12 +140,14 @@ class EmojiView(Gtk.Box):
         
         if top_used:
             self.top_used_box.set_visible(True)
+            col = 0
             for emoji in top_used[:10]:
                 btn = Gtk.Button()
                 btn.set_label(emoji)
                 btn.set_size_request(36, 36)
                 btn.connect("clicked", self.on_emoji_clicked, emoji)
-                self.top_used_grid.append(btn)
+                self.top_used_grid.attach(btn, col, 0, 1, 1)
+                col += 1
         else:
             self.top_used_box.set_visible(False)
     
@@ -169,9 +178,20 @@ class EmojiView(Gtk.Box):
             self.emoji_grid.remove(child)
             child = next_child
         
-        # Add results
+        # Add results with wrapping
+        col = 0
+        row = 0
         for emoji in results[:50]:
-            self.add_emoji_button(emoji)
+            btn = Gtk.Button()
+            btn.set_label(emoji)
+            btn.set_size_request(40, 40)
+            btn.connect("clicked", self.on_emoji_clicked, emoji)
+            self.emoji_grid.attach(btn, col, row, 1, 1)
+            
+            col += 1
+            if col >= 8:
+                col = 0
+                row += 1
     
     def on_category_clicked(self, button, category: str):
         """Handle category selection"""

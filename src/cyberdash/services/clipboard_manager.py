@@ -2,16 +2,9 @@
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from typing import List, Optional
-
-try:
-    import gi
-    gi.require_version('Gtk', '4.0')
-    from gi.repository import Gtk, Gdk
-    HAS_GTK = True
-except ImportError:
-    HAS_GTK = False
 
 
 class ClipboardManager:
@@ -63,19 +56,28 @@ class ClipboardManager:
         """Get clipboard history"""
         return self.history.copy()
     
-    def get_clipboard(self) -> Optional[Gtk.Clipboard]:
-        """Get system clipboard"""
-        if HAS_GTK:
-            return Gtk.Clipboard.get_default(Gdk.Display.get_default())
-        return None
-    
     def copy_to_clipboard(self, text: str):
-        """Copy text to system clipboard"""
-        clipboard = self.get_clipboard()
-        if clipboard:
-            clipboard.set_text(text, -1)
-            # Also add to history
-            self.add(text)
+        """Copy text to system clipboard using shell command"""
+        # Use xclip or xsel as fallback
+        try:
+            import subprocess
+            # Try xclip first
+            subprocess.run(['xclip', '-selection', 'clipboard', '-i'], 
+                         input=text.encode(), check=True)
+        except (FileNotFoundError, subprocess.CalledProcessError):
+            try:
+                # Try xsel
+                subprocess.run(['xsel', '--clipboard', '-i'], 
+                             input=text.encode(), check=True)
+            except (FileNotFoundError, subprocess.CalledProcessError):
+                # Use wl-paste for Wayland
+                try:
+                    subprocess.run(['wl-copy'], input=text.encode(), check=True)
+                except:
+                    print("Warning: No clipboard tool available")
+        
+        # Also add to history
+        self.add(text)
     
     def clear(self):
         """Clear clipboard history"""

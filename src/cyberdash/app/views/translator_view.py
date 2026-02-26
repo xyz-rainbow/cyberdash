@@ -88,7 +88,7 @@ class TranslatorView(Gtk.Box):
         # Input text
         self.input_view = Gtk.TextView()
         self.input_view.set_vexpand(False)
-        self.input_view.set_height_request(80)
+        self.input_view.set_size_request(-1, 80)
         self.input_view.set_wrap_mode(Gtk.WrapMode.WORD)
         
         input_frame = Gtk.Frame()
@@ -108,7 +108,7 @@ class TranslatorView(Gtk.Box):
         # Output text
         self.output_view = Gtk.TextView()
         self.output_view.set_vexpand(False)
-        self.output_view.set_height_request(80)
+        self.output_view.set_size_request(-1, 80)
         self.output_view.set_wrap_mode(Gtk.WrapMode.WORD)
         self.output_view.set_editable(False)
         
