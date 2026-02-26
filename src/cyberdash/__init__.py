@@ -30,6 +30,7 @@ from .app.views.emoji_view import EmojiView
 from .app.views.translator_view import TranslatorView
 from .app.views.clipboard_view import ClipboardView
 from .app.views.pinned_view import PinnedView
+from .app.views.stickers_view import StickersView
 from .app.views.settings_view import SettingsView
 from .utils.config import ConfigManager
 
@@ -123,10 +124,12 @@ class CyberDashWindow(Adw.Window):
         self.clipboard_view = ClipboardView(self.clipboard_manager, self.on_clipboard_select)
         self.translator_view = TranslatorView(self.translator, self.config, self.on_translate_done)
         self.pinned_view = PinnedView(self.on_pinned_select)
+        self.stickers_view = StickersView(self.on_sticker_select)
         self.settings_view = SettingsView(self.config, self.on_settings_changed)
         
         # Add views to stack
         self.content_stack.add_titled(self.emoji_view, "emoji", "Emojis")
+        self.content_stack.add_titled(self.stickers_view, "stickers", "Stickers")
         self.content_stack.add_titled(self.translator_view, "translator", "Traductor")
         self.content_stack.add_titled(self.clipboard_view, "clipboard", "Clipboard")
         self.content_stack.add_titled(self.pinned_view, "pinned", "Fijados")
@@ -164,6 +167,7 @@ class CyberDashWindow(Adw.Window):
         
         tab_names = [
             ("emoji", "🎭"),
+            ("stickers", "📦"),
             ("translator", "🌐"),
             ("clipboard", "📋"),
             ("pinned", "⭐"),
@@ -284,8 +288,8 @@ class CyberDashWindow(Adw.Window):
             return True
         
         # Number keys for tab switching
-        if Gdk.KEY_1 <= key <= Gdk.KEY_5:
-            tab_names = ["emoji", "translator", "clipboard", "pinned", "settings"]
+        if Gdk.KEY_1 <= key <= Gdk.KEY_6:
+            tab_names = ["emoji", "stickers", "translator", "clipboard", "pinned", "settings"]
             idx = key - Gdk.KEY_1
             if idx < len(tab_names):
                 self.on_tab_clicked(None, tab_names[idx])
@@ -323,6 +327,11 @@ class CyberDashWindow(Adw.Window):
         """Handle pinned item selection"""
         self.clipboard_manager.copy_to_clipboard(item)
         self.show_toast(f"Copied: {item[:20]}...")
+    
+    def on_sticker_select(self, item: str):
+        """Handle sticker/GIF selection"""
+        self.clipboard_manager.copy_to_clipboard(item)
+        self.show_toast("Copied to clipboard!")
     
     def on_settings_changed(self):
         """Handle settings change"""
