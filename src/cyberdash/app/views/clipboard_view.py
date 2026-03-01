@@ -1,124 +1,124 @@
-"""Clipboard View - Clipboard history"""
+"""Clipboard View"""
 
 import gi
-gi.require_version('Gtk', '4.0')
-from gi.repository import Gtk, Gdk
-
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk
 from typing import Callable
+from ...services.clipboard_manager import ClipboardManager
 
 
 class ClipboardView(Gtk.Box):
-    """Clipboard history view"""
-    
-    def __init__(self, clipboard_manager, on_select: Callable[[str], None]):
+    def __init__(self, clipboard_manager: ClipboardManager, on_select: Callable[[str], None]):
         super().__init__(orientation=Gtk.Orientation.VERTICAL)
-        
-        self.clipboard_manager = clipboard_manager
+        self.cm = clipboard_manager
         self.on_select = on_select
-        
-        self.setup_ui()
-        self.load_history()
-    
-    def setup_ui(self):
-        """Setup UI"""
-        self.set_margin_start(12)
-        self.set_margin_end(12)
-        self.set_margin_top(8)
-        self.set_margin_bottom(8)
-        
+        self._setup_ui()
+        self.refresh()
+
+    def _setup_ui(self):
         # Header
         header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        
-        title = Gtk.Label()
-        title.set_label("📋 HISTORIAL")
-        title.set_halign(Gtk.Align.START)
-        
-        clear_btn = Gtk.Button()
-        clear_btn.set_label("Limpiar")
-        clear_btn.set_halign(Gtk.Align.END)
-        clear_btn.set_hexpand(True)
-        clear_btn.connect("clicked", self.on_clear_clicked)
-        
-        header.append(title)
+        header.set_margin_start(10)
+        header.set_margin_end(10)
+        header.set_margin_top(8)
+        header.set_margin_bottom(6)
+
+        lbl = Gtk.Label(label="📋  HISTORIAL")
+        lbl.add_css_class("section-header")
+        lbl.set_halign(Gtk.Align.START)
+        lbl.set_hexpand(True)
+
+        clear_btn = Gtk.Button(label="Limpiar todo")
+        clear_btn.add_css_class("danger-btn")
+        clear_btn.connect("clicked", self._on_clear)
+
+        header.append(lbl)
         header.append(clear_btn)
-        
         self.append(header)
-        
-        # List
-        scrolled = Gtk.ScrolledWindow()
-        scrolled.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
-        scrolled.set_vexpand(True)
-        
+
+        # Scrollable list
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
+
         self.list_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
-        self.list_box.set_spacing(4)
-        
-        scrolled.set_child(self.list_box)
-        
-        self.append(scrolled)
-    
-    def load_history(self):
-        """Load clipboard history"""
-        # Clear list
-        child = self.list_box.get_first_child()
-        while child:
-            next_child = child.get_next_sibling()
+        self.list_box.set_spacing(0)
+        scroll.set_child(self.list_box)
+        self.append(scroll)
+
+    def refresh(self):
+        # Clear
+        while True:
+            child = self.list_box.get_first_child()
+            if child is None:
+                break
             self.list_box.remove(child)
-            child = next_child
-        
-        # Load items
-        history = self.clipboard_manager.get_history()
-        
+
+        history = self.cm.get_history()
         if not history:
-            empty = Gtk.Label()
-            empty.set_label("El historial está vacío")
-            empty.set_halign(Gtk.Align.CENTER)
-            self.list_box.append(empty)
+            lbl = Gtk.Label(label="El historial está vacío\nCopia algo para empezar")
+            lbl.add_css_class("empty-label")
+            lbl.set_justify(Gtk.Justification.CENTER)
+            lbl.set_margin_top(40)
+            self.list_box.append(lbl)
             return
-        
-        for item in history[:20]:
-            self.add_item(item)
-    
-    def add_item(self, text: str):
-        """Add clipboard item to list"""
+
+        for text, timestamp in history[:50]:
+            self.list_box.append(self._make_row(text, timestamp))
+
+    def _make_row(self, text: str, timestamp: str) -> Gtk.Box:
         row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        row.set_margin_top(4)
-        row.set_margin_bottom(4)
-        
-        # Content
-        content = Gtk.Label()
-        content.set_label(text[:80] + ("..." if len(text) > 80 else ""))
-        content.set_halign(Gtk.Align.START)
-        content.set_hexpand(True)
-        
+        row.add_css_class("clip-item")
+        row.set_spacing(6)
+
+        # Text content
+        info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        info.set_hexpand(True)
+        info.set_valign(Gtk.Align.CENTER)
+
+        preview = text[:120].replace("\n", " ")
+        if len(text) > 120:
+            preview += "…"
+
+        content_lbl = Gtk.Label(label=preview)
+        content_lbl.add_css_class("clip-text")
+        content_lbl.set_halign(Gtk.Align.START)
+        content_lbl.set_ellipsize_mode_from_string = None  # handled by preview truncation
+        info.append(content_lbl)
+
+        if timestamp:
+            ts_lbl = Gtk.Label(label=timestamp)
+            ts_lbl.add_css_class("clip-time")
+            ts_lbl.set_halign(Gtk.Align.START)
+            info.append(ts_lbl)
+
+        row.append(info)
+
         # Copy button
-        copy_btn = Gtk.Button()
-        copy_btn.set_icon_name("document-copy-symbolic")
-        copy_btn.set_size_request(36, 36)
-        copy_btn.connect("clicked", self.on_item_clicked, text)
-        
-        # Delete button
-        delete_btn = Gtk.Button()
-        delete_btn.set_icon_name("user-trash-symbolic")
-        delete_btn.set_size_request(36, 36)
-        delete_btn.connect("clicked", self.on_delete_clicked, text)
-        
-        row.append(content)
+        copy_btn = Gtk.Button(label="📋")
+        copy_btn.add_css_class("clip-action-btn")
+        copy_btn.set_tooltip_text("Copiar")
+        copy_btn.set_valign(Gtk.Align.CENTER)
+        copy_btn.connect("clicked", self._on_copy, text)
         row.append(copy_btn)
-        row.append(delete_btn)
-        
-        self.list_box.append(row)
-    
-    def on_item_clicked(self, button, text: str):
-        """Handle item click"""
-        if self.on_select:
-            self.on_select(text)
-    
-    def on_delete_clicked(self, button, text: str):
-        """Handle delete click"""
-        self.clipboard_manager.remove_item(text)
-        self.load_history()
-    
-    def on_clear_clicked(self, button):
-        """Handle clear click"""
-        self.clipboard_manager.clear()
-        self.load_history()
+
+        # Delete button
+        del_btn = Gtk.Button(label="🗑")
+        del_btn.add_css_class("clip-action-btn")
+        del_btn.set_tooltip_text("Eliminar")
+        del_btn.set_valign(Gtk.Align.CENTER)
+        del_btn.connect("clicked", self._on_delete, text)
+        row.append(del_btn)
+
+        return row
+
+    def _on_copy(self, btn, text: str):
+        self.on_select(text)
+
+    def _on_delete(self, btn, text: str):
+        self.cm.remove_item(text)
+        self.refresh()
+
+    def _on_clear(self, btn):
+        self.cm.clear()
+        self.refresh()

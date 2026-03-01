@@ -1,62 +1,66 @@
-"""Hotkey Manager - Global keyboard shortcuts"""
+"""Hotkey Manager - X11 global shortcuts via keybinder3"""
 
-import os
-import sys
 import threading
-import time
-from typing import Callable, Optional
-
-# Try different backends for global hotkeys
-try:
-    import keyboard
-    HAS_KEYBOARD = True
-except ImportError:
-    HAS_KEYBOARD = False
+from typing import Optional, Callable
 
 
 class HotkeyManager:
-    """Manages global keyboard shortcuts"""
-    
-    def __init__(self, window):
-        self.window = window
-        self.running = False
-        self.thread: Optional[threading.Thread] = None
-        self.shortcut = "super+."
-    
-    def register(self):
-        """Register global hotkey"""
-        if not HAS_KEYBOARD:
-            print("Warning: keyboard module not available")
-            return
-        
+    """
+    Global hotkey registration for X11 using keybinder3.
+    Falls back to a warning if keybinder3 is not installed.
+
+    Install:  sudo apt install gir1.2-keybinder-3.0
+    """
+
+    def __init__(self, callback: Callable):
+        self.callback = callback
+        self.shortcut = "<Super>period"  # keybinder format
+        self._registered = False
+
+        # Try to import keybinder
         try:
-            keyboard.add_hotkey(self.shortcut, self.on_hotkey)
-            print(f"Registered hotkey: {self.shortcut}")
+            import gi
+            gi.require_version("Keybinder", "3.0")
+            from gi.repository import Keybinder
+            self._keybinder = Keybinder
+            Keybinder.init()
+            self._available = True
         except Exception as e:
-            print(f"Failed to register hotkey: {e}")
-    
+            self._keybinder = None
+            self._available = False
+            print(f"[HotkeyManager] keybinder3 not available: {e}")
+            print("  Install with: sudo apt install gir1.2-keybinder-3.0")
+
+    def register(self, shortcut: Optional[str] = None):
+        """Register the global hotkey"""
+        if shortcut:
+            self.shortcut = shortcut
+
+        if not self._available:
+            print(f"[HotkeyManager] Hotkey not registered (keybinder3 missing)")
+            return
+
+        try:
+            self._keybinder.bind(self.shortcut, self._on_hotkey)
+            self._registered = True
+            print(f"[HotkeyManager] Registered: {self.shortcut}")
+        except Exception as e:
+            print(f"[HotkeyManager] Failed to register {self.shortcut}: {e}")
+
     def unregister(self):
-        """Unregister global hotkey"""
-        if HAS_KEYBOARD:
+        """Unregister the hotkey"""
+        if self._available and self._registered:
             try:
-                keyboard.remove_hotkey(self.shortcut)
-            except:
+                self._keybinder.unbind(self.shortcut)
+                self._registered = False
+            except Exception:
                 pass
-    
-    def on_hotkey(self):
-        """Handle hotkey press"""
-        if self.window:
-            # Run in main thread
-            def toggle():
-                if hasattr(self.window, 'toggle'):
-                    self.window.toggle()
-            
-            # Use GLib.idle_add for GTK thread safety
-            from gi.repository import GLib
-            GLib.idle_add(toggle)
-    
-    def set_shortcut(self, shortcut: str):
-        """Change the hotkey"""
-        self.unregister()
-        self.shortcut = shortcut
-        self.register()
+
+    def _on_hotkey(self, keystring: str):
+        """Called by keybinder on hotkey press (main GTK thread)"""
+        if self.callback:
+            self.callback()
+
+    @property
+    def is_available(self) -> bool:
+        return self._available

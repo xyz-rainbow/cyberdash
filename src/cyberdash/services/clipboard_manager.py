@@ -1,91 +1,132 @@
-"""Clipboard Manager - Clipboard history and management"""
+"""Clipboard Manager - GTK4 compatible, X11 focused"""
 
 import json
-import os
 import subprocess
+import threading
+from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Tuple, Optional
 
 
 class ClipboardManager:
-    """Manages clipboard history"""
-    
+    """Manages clipboard with persistent history"""
+
     def __init__(self):
-        self.history: List[str] = []
-        self.max_history = 50
         self.config_dir = Path.home() / ".config" / "cyberdash"
         self.history_file = self.config_dir / "clipboard_history.json"
-    
+        # List of (text, timestamp) tuples
+        self.history: List[Tuple[str, str]] = []
+        self.max_history = 50
+        self._lock = threading.Lock()
+
     def load(self):
-        """Load clipboard history from file"""
+        """Load history from disk"""
         if self.history_file.exists():
             try:
-                with open(self.history_file, 'r') as f:
+                with open(self.history_file, "r", encoding="utf-8") as f:
                     data = json.load(f)
-                    self.history = data.get('history', [])[:self.max_history]
+                    raw = data.get("history", [])
+                    # Support both old (str) and new (list) formats
+                    self.history = []
+                    for item in raw:
+                        if isinstance(item, list) and len(item) == 2:
+                            self.history.append((item[0], item[1]))
+                        elif isinstance(item, str):
+                            self.history.append((item, ""))
+                    self.history = self.history[: self.max_history]
             except Exception as e:
-                print(f"Error loading clipboard history: {e}")
+                print(f"Clipboard load error: {e}")
                 self.history = []
-    
-    def save(self):
-        """Save clipboard history to file"""
+
+    def _save(self):
+        """Save history to disk"""
         self.config_dir.mkdir(parents=True, exist_ok=True)
         try:
-            with open(self.history_file, 'w') as f:
-                json.dump({'history': self.history}, f)
+            with open(self.history_file, "w", encoding="utf-8") as f:
+                json.dump(
+                    {"history": [[t, ts] for t, ts in self.history]},
+                    f,
+                    ensure_ascii=False,
+                    indent=2,
+                )
         except Exception as e:
-            print(f"Error saving clipboard history: {e}")
-    
-    def add(self, text: str):
-        """Add item to clipboard history"""
-        if text and text.strip():
-            # Remove if already exists
-            if text in self.history:
-                self.history.remove(text)
-            
-            # Add to beginning
-            self.history.insert(0, text)
-            
-            # Trim to max size
-            self.history = self.history[:self.max_history]
-            
-            # Save
-            self.save()
-    
-    def get_history(self) -> List[str]:
-        """Get clipboard history"""
-        return self.history.copy()
-    
-    def copy_to_clipboard(self, text: str):
-        """Copy text to system clipboard using shell command"""
-        # Use xclip or xsel as fallback
-        try:
-            import subprocess
-            # Try xclip first
-            subprocess.run(['xclip', '-selection', 'clipboard', '-i'], 
-                         input=text.encode(), check=True)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+            print(f"Clipboard save error: {e}")
+
+    def copy_to_clipboard(self, text: str) -> bool:
+        """Copy text to X11 clipboard using xclip. Returns True on success."""
+        if not text:
+            return False
+
+        # Try xclip (most reliable on X11)
+        for cmd in [
+            ["xclip", "-selection", "clipboard"],
+            ["xsel", "--clipboard", "--input"],
+            ["wl-copy"],  # Wayland fallback
+        ]:
             try:
-                # Try xsel
-                subprocess.run(['xsel', '--clipboard', '-i'], 
-                             input=text.encode(), check=True)
-            except (FileNotFoundError, subprocess.CalledProcessError):
-                # Use wl-paste for Wayland
-                try:
-                    subprocess.run(['wl-copy'], input=text.encode(), check=True)
-                except:
-                    print("Warning: No clipboard tool available")
-        
-        # Also add to history
-        self.add(text)
-    
-    def clear(self):
-        """Clear clipboard history"""
-        self.history = []
-        self.save()
-    
+                proc = subprocess.run(
+                    cmd,
+                    input=text.encode("utf-8"),
+                    capture_output=True,
+                    timeout=2,
+                )
+                if proc.returncode == 0:
+                    self._add_to_history(text)
+                    return True
+            except (FileNotFoundError, subprocess.TimeoutExpired):
+                continue
+            except Exception as e:
+                print(f"Clipboard error with {cmd[0]}: {e}")
+
+        print("Warning: No clipboard tool found (install xclip)")
+        return False
+
+    def paste_to_app(self) -> bool:
+        """Simulate Ctrl+V in the previously focused window using xdotool"""
+        try:
+            subprocess.run(
+                ["xdotool", "key", "--clearmodifiers", "ctrl+v"],
+                timeout=2,
+                capture_output=True,
+            )
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+
+    def type_text(self, text: str) -> bool:
+        """Type text directly into the previously focused window"""
+        try:
+            subprocess.run(
+                ["xdotool", "type", "--clearmodifiers", "--", text],
+                timeout=5,
+                capture_output=True,
+            )
+            return True
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return False
+
+    def _add_to_history(self, text: str):
+        """Add text to history (deduplicates, newest first)"""
+        with self._lock:
+            # Remove if duplicate
+            self.history = [(t, ts) for t, ts in self.history if t != text]
+            # Add to front
+            ts = datetime.now().strftime("%H:%M")
+            self.history.insert(0, (text, ts))
+            self.history = self.history[: self.max_history]
+            self._save()
+
+    def get_history(self) -> List[Tuple[str, str]]:
+        """Get list of (text, timestamp) tuples"""
+        with self._lock:
+            return list(self.history)
+
     def remove_item(self, text: str):
-        """Remove specific item from history"""
-        if text in self.history:
-            self.history.remove(text)
-            self.save()
+        with self._lock:
+            self.history = [(t, ts) for t, ts in self.history if t != text]
+            self._save()
+
+    def clear(self):
+        with self._lock:
+            self.history = []
+            self._save()
